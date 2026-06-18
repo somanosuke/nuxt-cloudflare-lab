@@ -1,0 +1,54 @@
+name: Deploy Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# 同じPRで連続pushしたら走行中の古いジョブをキャンセル
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # PR コメントに必要
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # Worker 名 = リポジトリ名-PR番号-preview
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --name ${{ github.event.repository.name }}-${{ github.event.pull_request.number }}-preview
+
+      # header を固定して同一コメントを更新（push のたびに増殖させない）
+      - name: Comment preview URL on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: cf-preview
+          message: |
+            🚀 **プレビューをデプロイしました**
+
+            | 項目 | 値 |
+            |------|-----|
+            | Worker 名 | `${{ github.event.repository.name }}-${{ github.event.pull_request.number }}-preview` |
+            | プレビューURL | ${{ steps.deploy.outputs.deployment-url || '取得できず' }} |
+            | コミット | `${{ github.event.pull_request.head.sha }}` |
