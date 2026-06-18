@@ -15,5 +15,15 @@
     "vue": "^3.5.35",
     "vue-router": "^5.1.0"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild",
+      "sharp"
+    ]
+  },
+  "devDependencies": {
+    "wrangler": "^4.101.0"
+  }
 }
